@@ -5,6 +5,7 @@ A Raycast extension for barcode-based inventory management with Obsidian integra
 ## Features
 
 - **Barcode Scanning**: Quickly scan and add items to inventory
+- **Batch Scanning**: Scan multiple barcodes and process them as a batch (perfect for receiving shipments or inventory counts)
 - **Smart Updates**: Automatically updates quantity for existing items
 - **Search & Browse**: Fast search through your entire inventory
 - **Quantity Management**: Quick increment/decrement controls (+1, -1, +10, -10)
@@ -41,6 +42,38 @@ Open Raycast preferences for Scnr and configure:
 - Auto-detects existing items and adds to quantity
 - Press `Cmd+L` to lookup existing item by barcode
 - Fill in item details: name, description, quantity, location, tags
+- **Batch Mode**: Press `Cmd+B` to add items to batch mode for scanning multiple items
+  - Perfect for receiving shipments or counting inventory
+  - Scan continuously without filling in details for each item
+  - Process all scanned items at once with bulk operations
+
+### Batch Scan Barcodes
+Dedicated batch scanning mode for processing multiple items efficiently:
+
+#### Workflow
+1. **Scan Multiple Items**:
+   - Press `Cmd+S` to start scanning mode
+   - Scan or enter barcodes one after another (just press Enter after each)
+   - Items are automatically looked up and added to the batch
+   - Press `Cmd+D` when done scanning
+
+2. **Review Batch**:
+   - See summary of new vs. existing items
+   - View all scanned items with timestamps
+   - Remove items from batch if needed
+   - Exit batch mode with `Cmd+ESC`
+
+3. **Process Batch** (Press `Cmd+P`):
+   - **Add New & Update Existing**: Add new items to inventory and increment quantity for existing ones
+   - **Set Location**: Update storage location for all scanned items (existing only)
+   - **Add Tags**: Apply tags to all scanned items (existing only)
+   - **Adjust Quantity**: Increase or decrease quantity for all items (use negative numbers to decrease)
+
+#### Use Cases
+- **Receiving Shipments**: Scan all items from a shipment, set common location and tags, add to inventory in one go
+- **Inventory Counts**: Scan items to count, then adjust quantities based on findings
+- **Moving Items**: Scan items and update their location in bulk
+- **Organizing**: Add tags to multiple items at once
 
 ### Search Inventory
 - Browse and search all inventory items

@@ -3,7 +3,6 @@ import {
   Action,
   ActionPanel,
   Alert,
-  Color,
   Form,
   Icon,
   List,
@@ -11,9 +10,16 @@ import {
   Toast,
   useNavigation,
   confirmAlert,
+  Color,
 } from "@raycast/api";
-import { useState } from "react";
-import { saveInventoryItem, findItemByBarcode, updateInventoryItem, InventoryItem } from "./utils/obsidian";
+import { useState, useEffect } from "react";
+import {
+  saveInventoryItem,
+  findItemByBarcode,
+  updateInventoryItem,
+  InventoryItem,
+  batchUpdateItems,
+} from "./utils/obsidian";
 
 interface ScannedItem {
   barcode: string;
@@ -22,283 +28,9 @@ interface ScannedItem {
   isNew: boolean;
 }
 
-export default function ScanBarcode() {
-  const [batchMode, setBatchMode] = useState(false);
+export default function BatchScanBarcode() {
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
-  const { push } = useNavigation();
-
-  if (batchMode) {
-    return (
-      <BatchScanView
-        scannedItems={scannedItems}
-        setScannedItems={setScannedItems}
-        onExitBatchMode={() => setBatchMode(false)}
-      />
-    );
-  }
-
-  return (
-    <SingleScanForm
-      onEnterBatchMode={() => setBatchMode(true)}
-      scannedItems={scannedItems}
-      setScannedItems={setScannedItems}
-    />
-  );
-}
-
-function SingleScanForm({
-  onEnterBatchMode,
-  scannedItems,
-  setScannedItems,
-}: {
-  onEnterBatchMode: () => void;
-  scannedItems: ScannedItem[];
-  setScannedItems: React.Dispatch<React.SetStateAction<ScannedItem[]>>;
-}) {
-  const [barcode, setBarcode] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [location, setLocation] = useState("");
-  const [tags, setTags] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { pop } = useNavigation();
-
-  async function handleSubmit() {
-    if (!barcode || !name) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Missing required fields",
-        message: "Barcode and name are required",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Check if item already exists
-      const existingItem = await findItemByBarcode(barcode);
-
-      if (existingItem) {
-        // Update existing item quantity
-        const updatedItem: InventoryItem = {
-          ...existingItem,
-          quantity: existingItem.quantity + parseInt(quantity || "1", 10),
-          name: name || existingItem.name,
-          description: description || existingItem.description,
-          location: location || existingItem.location,
-          tags: tags ? tags.split(",").map((t) => t.trim()) : existingItem.tags,
-        };
-
-        await updateInventoryItem(updatedItem);
-
-        showToast({
-          style: Toast.Style.Success,
-          title: "Item updated",
-          message: `Updated ${updatedItem.name} (${updatedItem.quantity} total)`,
-        });
-      } else {
-        // Create new item
-        const newItem: InventoryItem = {
-          barcode,
-          name,
-          description,
-          quantity: parseInt(quantity || "1", 10),
-          location,
-          tags: tags ? tags.split(",").map((t) => t.trim()) : [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        await saveInventoryItem(newItem);
-
-        showToast({
-          style: Toast.Style.Success,
-          title: "Item added",
-          message: `Added ${newItem.name} to inventory`,
-        });
-      }
-
-      pop();
-    } catch (error) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Error saving item",
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function lookupBarcode() {
-    if (!barcode) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Enter a barcode first",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    const existingItem = await findItemByBarcode(barcode);
-
-    if (existingItem) {
-      setName(existingItem.name);
-      setDescription(existingItem.description || "");
-      setLocation(existingItem.location || "");
-      setTags(existingItem.tags?.join(", ") || "");
-
-      showToast({
-        style: Toast.Style.Success,
-        title: "Item found",
-        message: `Found existing item: ${existingItem.name}`,
-      });
-    } else {
-      showToast({
-        style: Toast.Style.Animated,
-        title: "New item",
-        message: "No existing item found with this barcode",
-      });
-    }
-
-    setIsLoading(false);
-  }
-
-  async function handleAddToBatch() {
-    if (!barcode) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Enter a barcode first",
-      });
-      return;
-    }
-
-    // Check if already in batch
-    if (scannedItems.some((item) => item.barcode === barcode)) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Already in batch",
-        message: `Barcode ${barcode} has already been scanned`,
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const existingItem = await findItemByBarcode(barcode);
-
-      const newScannedItem: ScannedItem = {
-        barcode,
-        timestamp: new Date(),
-        existing: existingItem || undefined,
-        isNew: !existingItem,
-      };
-
-      setScannedItems((prev) => [...prev, newScannedItem]);
-
-      showToast({
-        style: Toast.Style.Success,
-        title: "Added to batch",
-        message: existingItem ? existingItem.name : barcode,
-      });
-
-      // Switch to batch mode
-      onEnterBatchMode();
-    } catch (error) {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Error adding to batch",
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  return (
-    <Form
-      isLoading={isLoading}
-      actions={
-        <ActionPanel>
-          <Action.SubmitForm title="Save Item" onSubmit={handleSubmit} />
-          <Action title="Lookup Barcode" onAction={lookupBarcode} shortcut={{ modifiers: ["cmd"], key: "l" }} />
-          <Action
-            title="Add to Batch & Continue Scanning"
-            icon={Icon.BarCode}
-            onAction={handleAddToBatch}
-            shortcut={{ modifiers: ["cmd"], key: "b" }}
-          />
-          {scannedItems.length > 0 && (
-            <Action
-              title={`Switch to Batch Mode (${scannedItems.length} items)`}
-              icon={Icon.List}
-              onAction={onEnterBatchMode}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "b" }}
-            />
-          )}
-        </ActionPanel>
-      }
-    >
-      <Form.TextField
-        id="barcode"
-        title="Barcode"
-        placeholder="Scan or enter barcode"
-        value={barcode}
-        onChange={setBarcode}
-        autoFocus
-      />
-      <Form.Description text="💡 Tip: Press ⌘B to add to batch mode for scanning multiple items" />
-      <Form.TextField
-        id="name"
-        title="Item Name"
-        placeholder="Enter item name"
-        value={name}
-        onChange={setName}
-      />
-      <Form.TextArea
-        id="description"
-        title="Description"
-        placeholder="Optional description"
-        value={description}
-        onChange={setDescription}
-      />
-      <Form.TextField
-        id="quantity"
-        title="Quantity"
-        placeholder="1"
-        value={quantity}
-        onChange={setQuantity}
-      />
-      <Form.TextField
-        id="location"
-        title="Location"
-        placeholder="Optional storage location"
-        value={location}
-        onChange={setLocation}
-      />
-      <Form.TextField
-        id="tags"
-        title="Tags"
-        placeholder="Comma-separated tags"
-        value={tags}
-        onChange={setTags}
-      />
-    </Form>
-  );
-}
-
-function BatchScanView({
-  scannedItems,
-  setScannedItems,
-  onExitBatchMode,
-}: {
-  scannedItems: ScannedItem[];
-  setScannedItems: React.Dispatch<React.SetStateAction<ScannedItem[]>>;
-  onExitBatchMode: () => void;
-}) {
+  const [isScanning, setIsScanning] = useState(true);
   const { push, pop } = useNavigation();
 
   const handleStartScanning = () => {
@@ -306,16 +38,7 @@ function BatchScanView({
   };
 
   const handleBatchProcess = () => {
-    push(
-      <BatchProcessView
-        scannedItems={scannedItems}
-        onComplete={() => {
-          setScannedItems([]);
-          pop();
-          onExitBatchMode();
-        }}
-      />
-    );
+    push(<BatchProcessView scannedItems={scannedItems} onComplete={pop} />);
   };
 
   const handleClearAll = async () => {
@@ -350,12 +73,12 @@ function BatchScanView({
 
   return (
     <List
-      navigationTitle="Batch Scan Mode"
+      navigationTitle="Batch Scan Barcodes"
       searchBarPlaceholder="Filter scanned items..."
       actions={
         <ActionPanel>
           <Action
-            title="Continue Scanning"
+            title="Start Scanning"
             icon={Icon.BarCode}
             onAction={handleStartScanning}
             shortcut={{ modifiers: ["cmd"], key: "s" }}
@@ -377,19 +100,13 @@ function BatchScanView({
               />
             </>
           )}
-          <Action
-            title="Exit Batch Mode"
-            icon={Icon.ArrowLeft}
-            onAction={onExitBatchMode}
-            shortcut={{ modifiers: ["cmd"], key: "escape" }}
-          />
         </ActionPanel>
       }
     >
       {scannedItems.length === 0 ? (
         <List.EmptyView
-          title="No Items Scanned Yet"
-          description="Press ⌘S to start scanning barcodes, or ⌘ESC to exit batch mode"
+          title="No Items Scanned"
+          description="Press ⌘S to start scanning barcodes"
           icon={Icon.BarCode}
         />
       ) : (
@@ -435,17 +152,19 @@ function BatchScanView({
                       onAction={() => handleRemoveItem(item.barcode)}
                     />
                     <Action
-                      title="Continue Scanning"
+                      title="Start Scanning"
                       icon={Icon.BarCode}
                       onAction={handleStartScanning}
                       shortcut={{ modifiers: ["cmd"], key: "s" }}
                     />
-                    <Action
-                      title="Process Batch"
-                      icon={Icon.CheckCircle}
-                      onAction={handleBatchProcess}
-                      shortcut={{ modifiers: ["cmd"], key: "p" }}
-                    />
+                    {scannedItems.length > 0 && (
+                      <Action
+                        title="Process Batch"
+                        icon={Icon.CheckCircle}
+                        onAction={handleBatchProcess}
+                        shortcut={{ modifiers: ["cmd"], key: "p" }}
+                      />
+                    )}
                   </ActionPanel>
                 }
               />
@@ -527,12 +246,7 @@ function ScannerView({
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Add to Batch" icon={Icon.Plus} onSubmit={handleScan} />
-          <Action
-            title="Done Scanning"
-            icon={Icon.CheckCircle}
-            onAction={pop}
-            shortcut={{ modifiers: ["cmd"], key: "d" }}
-          />
+          <Action title="Done Scanning" icon={Icon.CheckCircle} onAction={pop} shortcut={{ modifiers: ["cmd"], key: "d" }} />
         </ActionPanel>
       }
     >
@@ -551,15 +265,11 @@ function ScannerView({
       <Form.Separator />
       <Form.Description
         title="Recent Scans"
-        text={
-          scannedItems.length > 0
-            ? scannedItems
-                .slice(-5)
-                .reverse()
-                .map((item, i) => `${i + 1}. ${item.existing?.name || item.barcode}`)
-                .join("\n")
-            : "No items scanned yet"
-        }
+        text={scannedItems
+          .slice(-5)
+          .reverse()
+          .map((item, i) => `${i + 1}. ${item.existing?.name || item.barcode}`)
+          .join("\n")}
       />
     </Form>
   );
@@ -618,7 +328,9 @@ function BatchProcessView({
                 ...scannedItem.existing,
                 quantity: scannedItem.existing.quantity + quantityDelta,
                 location: location || scannedItem.existing.location,
-                tags: tags ? tags.split(",").map((t) => t.trim()) : scannedItem.existing.tags,
+                tags: tags
+                  ? tags.split(",").map((t) => t.trim())
+                  : scannedItem.existing.tags,
               };
 
               await updateInventoryItem(updatedItem);
@@ -650,6 +362,7 @@ function BatchProcessView({
 
           processed++;
         } catch (error) {
+          console.error(`Error processing ${scannedItem.barcode}:`, error);
           errors++;
         }
       }
@@ -683,12 +396,7 @@ function BatchProcessView({
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Process Batch" icon={Icon.CheckCircle} onSubmit={handleProcess} />
-          <Action
-            title="Cancel"
-            icon={Icon.XMarkCircle}
-            onAction={pop}
-            shortcut={{ modifiers: ["cmd"], key: "." }}
-          />
+          <Action title="Cancel" icon={Icon.XMarkCircle} onAction={pop} shortcut={{ modifiers: ["cmd"], key: "." }} />
         </ActionPanel>
       }
     >

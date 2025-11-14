@@ -198,3 +198,38 @@ export async function updateInventoryItem(item: InventoryItem): Promise<void> {
   };
   await saveInventoryItem(updatedItem);
 }
+
+/**
+ * Batch update multiple inventory items
+ */
+export async function batchUpdateItems(items: InventoryItem[]): Promise<{ success: number; errors: number }> {
+  let success = 0;
+  let errors = 0;
+
+  for (const item of items) {
+    try {
+      await updateInventoryItem(item);
+      success++;
+    } catch (error) {
+      console.error(`Error updating item ${item.barcode}:`, error);
+      errors++;
+    }
+  }
+
+  return { success, errors };
+}
+
+/**
+ * Delete an inventory item by barcode
+ */
+export async function deleteInventoryItem(barcode: string): Promise<void> {
+  const inventoryPath = getInventoryPath();
+  const filename = `${barcode.replace(/[^a-zA-Z0-9-_]/g, "_")}.md`;
+  const filePath = path.join(inventoryPath, filename);
+
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    throw new Error(`Failed to delete item: ${error}`);
+  }
+}

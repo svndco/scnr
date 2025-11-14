@@ -18,6 +18,12 @@
       "mode": "view"
     },
     {
+      "name": "batch-scan-barcode",
+      "title": "Batch Scan Barcodes",
+      "description": "Scan multiple barcodes and process them as a batch",
+      "mode": "view"
+    },
+    {
       "name": "search-inventory",
       "title": "Search Inventory",
       "description": "Search your inventory items",

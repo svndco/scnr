@@ -1,3 +1,4 @@
+import React from "react";
 import { Action, ActionPanel, Form, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState } from "react";
 import { saveInventoryItem, findItemByBarcode, updateInventoryItem, InventoryItem } from "./utils/obsidian";
